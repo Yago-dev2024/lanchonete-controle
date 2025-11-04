@@ -1,630 +1,863 @@
-// =======================================================
-// VARIÁVEIS GLOBAIS E CHAVES DE ARMAZENAMENTO
-// =======================================================
-const STORAGE_KEY_PRODUTOS = 'produtosCadastrados';
-const STORAGE_KEY_VENDAS_DO_DIA = 'vendasDoDiaAtual'; 
-const STORAGE_KEY_HISTORICO = 'vendasHistorico'; 
+// =======================================================================
+// VARIÁVEIS DE ESTADO E INICIALIZAÇÃO
+// =======================================================================
 
-// =======================================================
-// ELEMENTOS DA INTERFACE (Seletores)
-// =======================================================
+const ESTADO_PADRAO = {
+    produtos: [
+        { id: 1, nome: "Coxinha", preco: 5.00 },
+        { id: 2, nome: "Refrigerante Lata", preco: 4.50 },
+        { id: 3, nome: "Bolo de Pote", preco: 8.00 },
+    ],
+    vendasHoje: [],
+    historico: []
+};
 
-// Abas de Navegação
-const tabVendasBtn = document.getElementById('tab-vendas');
-const tabProdutosBtn = document.getElementById('tab-produtos');
-const tabHistoricoBtn = document.getElementById('tab-historico'); 
-const contentVendas = document.getElementById('content-vendas');
-const contentProdutos = document.getElementById('content-produtos');
-const contentHistorico = document.getElementById('content-historico'); 
+let estado = {};
+// ALTERAÇÃO: Inicializa os IDs a partir de 1. Serão atualizados no carregarEstado.
+let idProdutoAtual = 1; 
+let idVendaAtual = 1; 
+let graficoResumo; // Variável para a instância do Chart.js
 
-// ABA PRODUTOS
-const formProduto = document.getElementById('form-produto');
-const nomeProdutoInput = document.getElementById('nome-produto');
-const precoProdutoInput = document.getElementById('preco-produto');
-const formExcluirProduto = document.getElementById('form-excluir-produto');
-const selectProdutoExcluir = document.getElementById('select-produto-excluir');
+// =======================================================================
+// FUNÇÕES DE UTILIDADE E ARMAZENAMENTO
+// =======================================================================
 
-// ABA VENDAS
-const formVenda = document.getElementById('form-venda');
-const selectProdutoVendas = document.getElementById('produto'); 
-const quantidadeVendaInput = document.getElementById('quantidade');
-const clienteVendaInput = document.getElementById('cliente');
-const listaVendasDiv = document.getElementById('lista-vendas'); 
+function carregarEstado() {
+    try {
+        const estadoSalvo = localStorage.getItem('controleVendasEstado');
+        if (estadoSalvo) {
+            estado = JSON.parse(estadoSalvo);
+            
+            // CORREÇÃO E REFORÇO: Inicializa contadores de ID baseados no maior ID existente + 1.
+            // Isso previne IDs duplicados após recarregamento.
+            idProdutoAtual = estado.produtos.length > 0 ? 
+                Math.max(...estado.produtos.map(p => p.id)) + 1 : 1;
+            idVendaAtual = estado.vendasHoje.length > 0 ?
+                Math.max(...estado.vendasHoje.map(v => v.id)) + 1 : 1;
+            
+            // Garante que 'historico' e 'vendasHoje' existam no objeto de estado
+            estado.historico = estado.historico || [];
+            estado.vendasHoje = estado.vendasHoje || [];
 
-// Resumo do Dia
-const totalDiaH2 = document.getElementById('total-dia');
-const totalVendasH3 = document.getElementById('total-vendas');
-const totalProdutosH3 = document.getElementById('total-produtos'); 
-
-// Botões de Ação
-const btnNovoDia = document.getElementById('btnNovoDia');
-const btnExportarPdf = document.getElementById('btnExportarPdf');
-
-// Seletores do Histórico
-const listaHistoricoDiv = document.getElementById('lista-historico');
-const detalhesHistoricoCard = document.getElementById('detalhes-historico-card');
-const detalhesHistoricoTitulo = document.getElementById('detalhes-historico-titulo');
-const detalhesVendasDoDiaDiv = document.getElementById('detalhes-vendas-do-dia');
-
-let produtosDisponiveis = []; 
-
-
-// =======================================================
-// FUNÇÕES DE PRODUTOS
-// =======================================================
-
-function carregarProdutos() {
-    const produtosJSON = localStorage.getItem(STORAGE_KEY_PRODUTOS);
-    return produtosJSON ? JSON.parse(produtosJSON) : [];
-}
-
-function salvarProdutos(produtos) {
-    localStorage.setItem(STORAGE_KEY_PRODUTOS, JSON.stringify(produtos));
-}
-
-function handleCadastroProduto(event) {
-    event.preventDefault();
-
-    const nome = nomeProdutoInput.value.trim();
-    const preco = parseFloat(precoProdutoInput.value);
-
-    if (!nome || isNaN(preco) || preco <= 0) {
-        alert("Por favor, preencha o nome do produto e um preço válido.");
-        return;
+            return;
+        }
+    } catch (e) {
+        console.error("Erro ao carregar estado do localStorage. Usando estado padrão:", e);
     }
+    // Se não houver estado salvo ou se houver erro, usa o padrão
+    // ATENÇÃO: É necessário fazer uma cópia profunda (deep copy) do ESTADO_PADRAO
+    // para evitar que alterações em 'estado' modifiquem o objeto padrão.
+    estado = JSON.parse(JSON.stringify(ESTADO_PADRAO)); 
+    idProdutoAtual = estado.produtos.length + 1;
+    idVendaAtual = 1;
+}
 
-    let produtos = carregarProdutos();
-    const produtoExistente = produtos.some(p => p.nome.toLowerCase() === nome.toLowerCase());
-    if (produtoExistente) {
-        alert(`O produto "${nome}" já está cadastrado.`);
-        return;
+function salvarEstado() {
+    try {
+        localStorage.setItem('controleVendasEstado', JSON.stringify(estado));
+    } catch (e) {
+        console.error("Erro ao salvar estado no localStorage:", e);
+        showToast("Erro ao salvar dados. Verifique o armazenamento do navegador.", "error");
     }
+}
 
-    const novoProduto = {
-        nome: nome,
-        preco: preco
-    };
+function formatarMoeda(valor) {
+    // Melhorado para lidar com valores não numéricos (embora improvável)
+    const num = parseFloat(valor);
+    if (isNaN(num)) return "R$ 0,00";
+    return `R$ ${num.toFixed(2).replace('.', ',')}`;
+}
+
+// Implementação do Toast Notification (mantida como original)
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
     
-    produtos.push(novoProduto); 
-    salvarProdutos(produtos);
-    
-    formProduto.reset(); 
-    precoProdutoInput.value = "0.00"; 
-    
-    popularSelectProdutos(); 
-    popularSelectProdutosExcluir();
-    atualizarResumoDoDia(); 
-    
-    alert(`Produto "${nome}" cadastrado com sucesso!`);
+    const iconClass = type === 'success' ? 'fas fa-check-circle' : 'fas fa-times-circle';
+    toast.innerHTML = `<i class="${iconClass}"></i> ${message}`;
+
+    container.appendChild(toast);
+
+    // Força o reflow para aplicar a transição
+    setTimeout(() => toast.classList.add('show'), 10); 
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        toast.addEventListener('transitionend', () => toast.remove());
+    }, 3000);
 }
 
 
-function popularSelectProdutosExcluir() {
-    const produtos = carregarProdutos();
-    
-    produtos.sort((a, b) => a.nome.localeCompare(b.nome));
+// =======================================================================
+// RENDERIZAÇÃO E ATUALIZAÇÃO DA INTERFACE (Lógica mantida como original)
+// =======================================================================
 
-    selectProdutoExcluir.innerHTML = '<option value="">Selecione um produto para excluir</option>'; 
+function atualizarInterface() {
+    // 1. Atualizar Selects de Produtos (Venda e Exclusão)
+    renderizarSelectProdutos();
     
-    produtos.forEach(produto => {
-        const option = document.createElement('option');
-        option.value = produto.nome; 
-        option.textContent = `${produto.nome} (R$ ${parseFloat(produto.preco).toFixed(2)})`; 
-        selectProdutoExcluir.appendChild(option);
+    // 2. Atualizar Resumo do Dia
+    renderizarResumoDia();
+
+    // 3. Atualizar Lista de Vendas de Hoje
+    renderizarListaVendas();
+
+    // 4. Atualizar Lista de Produtos Cadastrados
+    renderizarListaProdutosCadastrados();
+
+    // 5. Atualizar Histórico (se na aba)
+    const isHistoricoTabActive = document.getElementById('content-historico') && 
+                                !document.getElementById('content-historico').classList.contains('hidden');
+    if (isHistoricoTabActive) {
+         renderizarHistorico();
+    }
+}
+
+
+function renderizarSelectProdutos() {
+    const selectVenda = document.getElementById('produto');
+    const selectExcluir = document.getElementById('select-produto-excluir');
+    
+    const produtosOrdenados = [...estado.produtos].sort((a, b) => 
+        a.nome.localeCompare(b.nome, 'pt-BR')
+    );
+
+    [selectVenda, selectExcluir].forEach(select => {
+        // CORREÇÃO: Pega o valor selecionado ANTES de limpar o innerHTML
+        const selectedValue = select.value; 
+        select.innerHTML = '';
+        
+        // Adiciona a opção padrão
+        const defaultOption = document.createElement('option');
+        defaultOption.value = "";
+        defaultOption.textContent = select.id === 'produto' ? "Selecione um produto" : "Selecione um produto para excluir";
+        select.appendChild(defaultOption);
+
+        // Adiciona os produtos ORDENADOS
+        produtosOrdenados.forEach(produto => {
+            const option = document.createElement('option');
+            option.value = produto.id;
+            option.textContent = produto.nome; 
+            option.dataset.price = produto.preco; 
+
+            select.appendChild(option);
+        });
+
+        // Tenta restaurar o valor selecionado
+        if (selectedValue && Array.from(select.options).some(opt => opt.value == selectedValue)) {
+             select.value = selectedValue;
+        } else {
+             select.value = "";
+        }
     });
 }
 
-function handleExcluirProduto(event) {
-    event.preventDefault();
+function renderizarResumoDia() {
+    const totalDiaElement = document.getElementById('total-dia');
+    const totalVendasElement = document.getElementById('total-vendas');
+    const totalProdutosElement = document.getElementById('total-produtos');
 
-    const produtoNome = selectProdutoExcluir.value;
+    // REFORÇO: Garantindo que as somas lidem com arrays vazios
+    const totalArrecadado = estado.vendasHoje.reduce((acc, venda) => acc + (venda.total || 0), 0);
+    const totalItensVendidos = estado.vendasHoje.reduce((acc, venda) => acc + (venda.quantidade || 0), 0);
 
-    if (!produtoNome) {
-        alert("Por favor, selecione um produto para excluir.");
+    totalDiaElement.textContent = formatarMoeda(totalArrecadado);
+    totalVendasElement.textContent = estado.vendasHoje.length;
+    totalProdutosElement.textContent = totalItensVendidos; 
+
+    // NOVO: Renderiza o Gráfico
+    renderizarGraficoResumo();
+}
+
+
+// Plugin Chart.js para renderizar a legenda como uma UL (HTML)
+// Mantido inalterado - É perfeito!
+const getOrCreateLegendList = (chart, id) => {
+    const legendContainer = document.getElementById(id);
+    let listContainer = legendContainer.nextElementSibling; 
+
+    if (!listContainer || listContainer.tagName !== 'UL') {
+        listContainer = document.createElement('ul');
+        
+        if (legendContainer.nextElementSibling) {
+            legendContainer.parentNode.insertBefore(listContainer, legendContainer.nextElementSibling);
+        } else {
+            legendContainer.parentNode.appendChild(listContainer);
+        }
+    }
+
+    return listContainer;
+};
+
+const htmlLegendPlugin = {
+    id: 'htmlLegend',
+    afterUpdate(chart, args, options) {
+        if (!options.htmlLegend || !options.htmlLegend.containerID) return;
+        
+        const ul = getOrCreateLegendList(chart, options.htmlLegend.containerID);
+        
+        while (ul.firstChild) {
+            ul.firstChild.remove();
+        }
+
+        const items = chart.options.plugins.legend.labels.generateLabels(chart);
+
+        items.forEach(item => {
+            const li = document.createElement('li');
+            li.style.cursor = 'pointer';
+            
+            li.onclick = () => {
+                chart.toggleDataVisibility(item.index); 
+                chart.update();
+            };
+
+            const boxSpan = document.createElement('span');
+            boxSpan.style.backgroundColor = item.fillStyle;
+            boxSpan.style.borderColor = item.strokeStyle;
+            boxSpan.style.borderWidth = item.lineWidth + 'px';
+            boxSpan.style.display = 'inline-block';
+            boxSpan.style.width = '12px';
+            boxSpan.style.height = '12px';
+            boxSpan.style.borderRadius = '3px';
+
+            const textContainer = document.createElement('p');
+            textContainer.style.color = item.fontColor;
+            textContainer.style.margin = 0;
+            textContainer.style.textDecoration = item.hidden ? 'line-through' : '';
+
+            const text = document.createTextNode(item.text);
+            textContainer.appendChild(text);
+
+            li.appendChild(boxSpan);
+            li.appendChild(textContainer);
+            ul.appendChild(li);
+        });
+    }
+};
+
+function renderizarGraficoResumo() {
+    const canvasContainer = document.getElementById('resumo-grafico-container');
+
+    // 1. Coleta e Agrega os Dados
+    const dadosProdutos = estado.vendasHoje.reduce((acc, venda) => {
+        const nome = venda.nomeProduto;
+        acc[nome] = (acc[nome] || 0) + venda.total;
+        return acc;
+    }, {});
+
+    const labels = Object.keys(dadosProdutos);
+    const data = Object.values(dadosProdutos);
+
+    // 2. Cores (Exemplo: cores predefinidas para melhor visualização)
+    const backgroundColors = [
+        '#2563eb', // Azul
+        '#16a34a', // Verde
+        '#f59e0b', // Amarelo/Laranja
+        '#ef4444', // Vermelho
+        '#6366f1', // Indigo
+        '#a855f7', // Roxo
+        '#06b6d4', // Ciano
+        '#f97316', // Laranja Escuro
+    ];
+    const borderColors = backgroundColors.map(color => color + 'dd'); // Um pouco mais escura
+
+    // 3. Destrói o gráfico anterior (se existir)
+    if (graficoResumo) {
+        graficoResumo.destroy();
+    }
+    
+    // 4. Verifica se há dados para exibir
+    if (labels.length === 0) {
+        // Remove a UL da legenda se ela existir e houver dados
+        let oldLegend = canvasContainer.nextElementSibling;
+        if (oldLegend && oldLegend.tagName === 'UL') {
+            oldLegend.remove();
+        }
+        // MODIFICAÇÃO: Garante que o estado vazio seja visível
+        canvasContainer.innerHTML = '<div class="empty-state"><i class="fas fa-chart-pie"></i><p>Nenhuma venda registrada para o gráfico.</p></div>';
         return;
     }
 
-    if (!confirm(`Tem certeza que deseja excluir o produto "${produtoNome}"? Isso removerá o produto, mas as vendas antigas permanecerão registradas.`)) {
-        return;
+    // Cria ou reutiliza o elemento canvas
+    let canvas = document.getElementById('resumo-grafico');
+    if (!canvas || canvas.parentNode !== canvasContainer) {
+        // Limpa e cria o canvas se não existir ou se o conteúdo foi substituído por 'empty-state'
+        canvasContainer.innerHTML = ''; 
+        canvas = document.createElement('canvas');
+        canvas.id = 'resumo-grafico';
+        canvasContainer.appendChild(canvas);
     }
 
-    let produtos = carregarProdutos();
-    produtos = produtos.filter(p => p.nome !== produtoNome);
-    
-    salvarProdutos(produtos);
-    
-    formExcluirProduto.reset();
-    
-    popularSelectProdutos(); 
-    popularSelectProdutosExcluir();
-    atualizarResumoDoDia(); 
-    renderizarHistorico(); 
-    
-    alert(`Produto "${produtoNome}" excluído com sucesso!`);
+    // 5. Cria o novo gráfico
+    graficoResumo = new Chart(canvas, {
+        type: 'doughnut', 
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: backgroundColors.slice(0, labels.length),
+                borderColor: borderColors.slice(0, labels.length),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false 
+                },
+                htmlLegend: {
+                    containerID: 'resumo-grafico-container', 
+                },
+                title: {
+                    display: true,
+                    text: 'Distribuição de Vendas por Produto (R$)',
+                    font: { size: 14 }
+                }
+            }
+        },
+        plugins: [htmlLegendPlugin] 
+    });
 }
 
-// =======================================================
-// FUNÇÕES DE VENDAS
-// =======================================================
 
-function carregarVendasDoDia() {
-    const vendasJSON = localStorage.getItem(STORAGE_KEY_VENDAS_DO_DIA);
-    return vendasJSON ? JSON.parse(vendasJSON) : [];
-}
-
-function salvarVendasDoDia(vendas) {
-    localStorage.setItem(STORAGE_KEY_VENDAS_DO_DIA, JSON.stringify(vendas));
-}
-
-function carregarHistorico() {
-    const historicoJSON = localStorage.getItem(STORAGE_KEY_HISTORICO);
-    return historicoJSON ? JSON.parse(historicoJSON) : {};
-}
-
-function salvarHistorico(historico) {
-    localStorage.setItem(STORAGE_KEY_HISTORICO, JSON.stringify(historico));
-}
-
-function renderizarVendas() {
-    const vendasDoDia = carregarVendasDoDia();
+function renderizarListaVendas() {
+    const listaVendasDiv = document.getElementById('lista-vendas');
     
-    listaVendasDiv.innerHTML = ''; 
-
-    vendasDoDia.sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora)); 
-
-    if (vendasDoDia.length === 0) {
+    if (estado.vendasHoje.length === 0) {
         listaVendasDiv.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-shopping-cart"></i>
                 <p>Nenhuma venda registrada hoje</p>
-            </div>
-        `;
+            </div>`;
         return;
     }
 
-    const listaHTML = document.createElement('ul');
-    listaHTML.className = 'vendas-list'; 
+    const listaHtml = document.createElement('ul');
+    listaHtml.className = 'vendas-list';
+
+    // Ordena as vendas pela hora de registro (ID em ordem decrescente)
+    const vendasOrdenadas = [...estado.vendasHoje].sort((a, b) => b.id - a.id);
+
+    vendasOrdenadas.forEach(venda => {
+        const item = document.createElement('li');
+        const dataVenda = new Date(venda.timestamp);
+        // REFORÇO: Adiciona uma verificação para garantir que o timestamp é válido
+        const horaFormatada = isNaN(dataVenda.getTime()) ? 'Horário Desconhecido' : dataVenda.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const clienteTexto = venda.cliente ? ` | Cliente: ${venda.cliente}` : '';
+
+        item.innerHTML = `
+            <div class="venda-info">
+                <strong>${venda.nomeProduto} x${venda.quantidade}</strong>
+                <div class="details">
+                    <span>${horaFormatada}</span>
+                    <span>${clienteTexto}</span>
+                </div>
+                <span>Unidade: ${formatarMoeda(venda.precoUnitario)}</span>
+            </div>
+            <div class="venda-valor">
+                ${formatarMoeda(venda.total)}
+                <button onclick="excluirVenda(${venda.id})">Excluir</button>
+            </div>
+        `;
+        listaHtml.appendChild(item);
+    });
+
+    listaVendasDiv.innerHTML = '';
+    listaVendasDiv.appendChild(listaHtml);
+}
+
+
+function renderizarListaProdutosCadastrados() {
+    const listaProdutosDiv = document.getElementById('lista-produtos-cadastrados');
+
+    if (estado.produtos.length === 0) {
+           listaProdutosDiv.innerHTML = `
+             <div class="empty-state">
+                 <i class="fas fa-box-open"></i>
+                 <p>Nenhum produto cadastrado.</p>
+             </div>`;
+        return;
+    }
     
-    vendasDoDia.forEach(venda => {
-        const dataVendaObj = new Date(venda.dataHora);
-        const horaFormatada = dataVendaObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        
+    // REFORÇO: Ordena por nome
+    const produtosOrdenados = [...estado.produtos].sort((a, b) => 
+        a.nome.localeCompare(b.nome, 'pt-BR')
+    );
+
+
+    const listaHtml = document.createElement('ul');
+    listaHtml.className = 'vendas-list'; 
+
+    produtosOrdenados.forEach(produto => {
         const item = document.createElement('li');
         item.innerHTML = `
             <div class="venda-info">
-                <strong>${venda.produto}</strong>
-                <div class="details">
-                    <span>${venda.quantidade}x</span> 
-                    <span>R$ ${parseFloat(venda.valorUnitario).toFixed(2)} unit.</span>
-                    <span>Cliente: ${venda.cliente || 'Anônimo'}</span>
-                </div>
-                <span>${horaFormatada}</span>
+                <strong>${produto.nome}</strong>
             </div>
             <div class="venda-valor">
-                R$ ${parseFloat(venda.valorTotal).toFixed(2)}
-                <button onclick="excluirVenda('${venda.id}')">Excluir</button>
+                ${formatarMoeda(produto.preco)}
             </div>
         `;
-        listaHTML.appendChild(item);
+        listaHtml.appendChild(item);
     });
 
-    listaVendasDiv.appendChild(listaHTML);
+    listaProdutosDiv.innerHTML = '';
+    listaProdutosDiv.appendChild(listaHtml);
 }
-
-
-window.excluirVenda = function(vendaId) {
-    if (!confirm("Tem certeza que deseja excluir esta venda? Esta ação é irreversível.")) {
-        return;
-    }
-    let vendas = carregarVendasDoDia(); 
-    vendas = vendas.filter(venda => venda.id !== vendaId);
-    salvarVendasDoDia(vendas);
-    renderizarVendas();
-    atualizarResumoDoDia();
-}
-
-function handleRegistroVenda(event) {
-    event.preventDefault();
-
-    const produtoNome = selectProdutoVendas.value;
-    const quantidade = parseInt(quantidadeVendaInput.value);
-    const cliente = clienteVendaInput.value.trim();
-
-    if (!produtoNome || !quantidade || quantidade <= 0) {
-        alert("Por favor, selecione um produto e insira uma quantidade válida.");
-        return;
-    }
-
-    const produtoSelecionado = produtosDisponiveis.find(p => p.nome === produtoNome);
-
-    if (!produtoSelecionado) {
-        alert("Produto selecionado não encontrado. Por favor, cadastre-o na aba 'Produtos'.");
-        return;
-    }
-
-    const valorUnitario = produtoSelecionado.preco;
-    const valorTotal = valorUnitario * quantidade;
-
-    let vendas = carregarVendasDoDia(); 
-    const novaVenda = {
-        id: Date.now().toString(), 
-        produto: produtoNome,
-        quantidade: quantidade,
-        valorUnitario: valorUnitario,
-        valorTotal: valorTotal,
-        cliente: cliente || 'Anônimo',
-        dataHora: new Date().toISOString() 
-    };
-    vendas.push(novaVenda);
-    salvarVendasDoDia(vendas);
-
-    formVenda.reset();
-    selectProdutoVendas.value = produtoNome;
-    
-    renderizarVendas();
-    atualizarResumoDoDia();
-}
-
-function handleNovoDia() {
-    const vendasDiaAnterior = carregarVendasDoDia();
-    
-    if (vendasDiaAnterior.length === 0) {
-        alert("Não há vendas para fechar o dia.");
-        return;
-    }
-
-    if (!confirm("Tem certeza que deseja fechar o dia e limpar o registro de VENDAS? \n\n⚠️ ATENÇÃO: Se o sistema está sendo usado no dia seguinte, certifique-se de que exportou o relatório do dia anterior antes de avançar. Esta ação é irreversível e salvará o histórico.")) {
-        return;
-    }
-
-    const dataFechamento = new Date(vendasDiaAnterior[0].dataHora).toISOString().slice(0, 10); 
-
-    const historico = carregarHistorico();
-
-    historico[dataFechamento] = vendasDiaAnterior; 
-    salvarHistorico(historico);
-
-    salvarVendasDoDia([]); 
-    
-    renderizarVendas();
-    atualizarResumoDoDia();
-    alert(`O dia ${dataFechamento} foi fechado e o histórico de vendas foi salvo. Um novo dia começa!`);
-}
-
-
-// =======================================================
-// FUNÇÕES DE HISTÓRICO
-// =======================================================
 
 function renderizarHistorico() {
-    const historico = carregarHistorico();
-    const datas = Object.keys(historico).sort().reverse(); 
-    
-    listaHistoricoDiv.innerHTML = ''; 
-    detalhesHistoricoCard.classList.add('hidden'); 
+    const listaHistoricoDiv = document.getElementById('lista-historico');
+    const detalhesCard = document.getElementById('detalhes-historico-card');
+    detalhesCard.classList.add('hidden'); // Esconde detalhes ao recarregar
+    listaHistoricoDiv.innerHTML = '';
 
-    if (datas.length === 0) {
+    if (estado.historico.length === 0) {
         listaHistoricoDiv.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-history"></i>
                 <p>O histórico será exibido aqui após fechar o dia.</p>
-            </div>
-        `;
+            </div>`;
         return;
     }
 
-    const listaHTML = document.createElement('ul');
-    listaHTML.className = 'historico-list'; 
-    
-    datas.forEach(dataISO => {
-        const vendasDoDia = historico[dataISO];
-        const dataFormatada = new Date(dataISO + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-        
-        const totalDia = vendasDoDia.reduce((sum, venda) => sum + venda.valorTotal, 0);
+    const listaHtml = document.createElement('ul');
+    listaHtml.className = 'historico-list';
 
+    // Ordena o histórico por data (mais recente primeiro)
+    const historicoOrdenado = [...estado.historico].sort((a, b) => new Date(b.data) - new Date(a.data));
+
+    historicoOrdenado.forEach(dia => {
         const item = document.createElement('li');
+        const dataFormatada = new Date(dia.data).toLocaleDateString('pt-BR');
+
         item.innerHTML = `
             <span class="data-resumo">${dataFormatada}</span>
-            <span class="total-resumo">R$ ${totalDia.toFixed(2)}</span>
+            <span class="total-resumo">${formatarMoeda(dia.totalArrecadado)}</span>
+            <p>Vendas: ${dia.totalVendas} • Itens: ${dia.totalItensVendidos}</p>
             <div class="botoes-resumo">
-                <button class="btn-export-hist" onclick="exportarPdfHistorico('${dataISO}')">
-                    <i class="fas fa-file-pdf"></i> Exportar
+                <button class="btn-detalhes-hist" onclick="mostrarDetalhesHistorico('${dia.data}')">
+                    <i class="fas fa-eye"></i> Detalhes
                 </button>
-                <button class="btn-detalhes-hist" onclick="mostrarDetalhesHistorico('${dataISO}')">
-                    Detalhes
-                </button>
-                <button class="btn-apagar-hist" onclick="apagarDiaHistorico('${dataISO}')">
-                    <i class="fas fa-trash"></i>
+                <button class="btn-detalhes-hist export-hist-pdf" onclick="exportarHistoricoPdf('${dia.data}')">
+                    <i class="fas fa-file-pdf"></i> Exportar PDF
+                </button> 
+                <button class="btn-apagar-hist" onclick="excluirHistorico('${dia.data}')">
+                    <i class="fas fa-trash"></i> Apagar
                 </button>
             </div>
         `;
-        listaHTML.appendChild(item);
+        listaHtml.appendChild(item);
     });
-
-    listaHistoricoDiv.appendChild(listaHTML);
+    
+    listaHistoricoDiv.appendChild(listaHtml);
 }
 
-window.apagarDiaHistorico = function(dataISO) {
-    const dataFormatada = new Date(dataISO + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-    if (!confirm(`Tem certeza que deseja apagar permanentemente o histórico do dia ${dataFormatada}? Esta ação é irreversível.`)) {
+function mostrarDetalhesHistorico(data) {
+    const dia = estado.historico.find(d => d.data === data);
+    const detalhesCard = document.getElementById('detalhes-historico-card');
+    const titulo = document.getElementById('detalhes-historico-titulo');
+    const listaDetalhes = document.getElementById('detalhes-vendas-do-dia');
+
+    if (!dia) {
+        showToast("Histórico não encontrado.", "error");
+        return;
+    }
+    
+    // Rola para o topo para ver o card de detalhes
+    detalhesCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    titulo.textContent = `Detalhes de ${new Date(data).toLocaleDateString('pt-BR')}`;
+    listaDetalhes.innerHTML = '';
+
+    const listaVendasHtml = document.createElement('ul');
+    listaVendasHtml.className = 'vendas-list';
+
+    // Ordena as vendas do histórico por hora
+    const vendasOrdenadas = [...dia.vendas].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+
+    vendasOrdenadas.forEach(venda => {
+        const item = document.createElement('li');
+        const dataVenda = new Date(venda.timestamp);
+        const horaFormatada = dataVenda.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const clienteTexto = venda.cliente ? ` | Cliente: ${venda.cliente}` : '';
+
+        item.innerHTML = `
+            <div class="venda-info">
+                <strong>${venda.nomeProduto} x${venda.quantidade}</strong>
+                <div class="details">
+                    <span>${horaFormatada}</span>
+                    <span>${clienteTexto}</span>
+                </div>
+                <span>Unidade: ${formatarMoeda(venda.precoUnitario)}</span>
+            </div>
+            <div class="venda-valor">
+                ${formatarMoeda(venda.total)}
+            </div>
+        `;
+        listaVendasHtml.appendChild(item);
+    });
+
+    listaDetalhes.appendChild(listaVendasHtml);
+    detalhesCard.classList.remove('hidden');
+}
+
+
+// =======================================================================
+// LÓGICA DE NEGÓCIO (CRUD)
+// =======================================================================
+
+// --- PRODUTOS ---
+document.getElementById('form-produto').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const nome = document.getElementById('nome-produto').value.trim();
+    // REFORÇO: Sempre parsear para garantir que é um número (float)
+    const preco = parseFloat(document.getElementById('preco-produto').value); 
+
+    if (nome === "" || isNaN(preco) || preco <= 0) {
+        showToast("Dados do produto inválidos (nome vazio ou preço <= 0).", "error");
+        return;
+    }
+    
+    // Evita produtos duplicados
+    if (estado.produtos.some(p => p.nome.toLowerCase() === nome.toLowerCase())) {
+        showToast(`O produto "${nome}" já existe.`, "error");
         return;
     }
 
-    const historico = carregarHistorico();
-    delete historico[dataISO];
-    salvarHistorico(historico);
+    const novoProduto = {
+        id: idProdutoAtual++,
+        nome: nome,
+        preco: preco
+    };
+
+    estado.produtos.push(novoProduto);
+    salvarEstado();
+    atualizarInterface();
+    document.getElementById('form-produto').reset();
+    showToast(`Produto "${nome}" adicionado!`);
+});
+
+document.getElementById('form-excluir-produto').addEventListener('submit', function(e) {
+    e.preventDefault();
     
-    alert(`Histórico do dia ${dataFormatada} apagado com sucesso!`);
-    renderizarHistorico();
+    // REFORÇO: Sempre parsear para garantir que é um número (int)
+    const produtoId = parseInt(document.getElementById('select-produto-excluir').value); 
+    
+    if (!produtoId) {
+        showToast("Selecione um produto para excluir.", "error");
+        return;
+    }
+
+    const index = estado.produtos.findIndex(p => p.id === produtoId);
+    
+    if (index !== -1) {
+        const nomeProdutoExcluido = estado.produtos[index].nome;
+        estado.produtos.splice(index, 1);
+        salvarEstado();
+        atualizarInterface();
+        document.getElementById('form-excluir-produto').reset();
+        showToast(`Produto "${nomeProdutoExcluido}" excluído com sucesso.`, "error");
+    }
+});
+
+
+// --- VENDAS ---
+document.getElementById('form-venda').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const produtoId = parseInt(document.getElementById('produto').value);
+    const quantidade = parseInt(document.getElementById('quantidade').value);
+    const cliente = document.getElementById('cliente').value.trim();
+    
+    if (!produtoId || isNaN(quantidade) || quantidade <= 0) {
+        showToast("Selecione um produto e uma quantidade válida.", "error");
+        return;
+    }
+
+    const produto = estado.produtos.find(p => p.id === produtoId);
+
+    if (!produto) {
+        showToast("Erro: Produto não encontrado. Recarregue a página.", "error");
+        return;
+    }
+
+    // REFORÇO: Utiliza o preco do objeto produto, garantindo que seja um number
+    const total = parseFloat((produto.preco * quantidade).toFixed(2)); 
+
+    const novaVenda = {
+        id: idVendaAtual++,
+        idProduto: produto.id,
+        nomeProduto: produto.nome,
+        precoUnitario: produto.preco,
+        quantidade: quantidade,
+        cliente: cliente,
+        total: total,
+        timestamp: Date.now()
+    };
+
+    estado.vendasHoje.push(novaVenda);
+    salvarEstado();
+    atualizarInterface();
+    document.getElementById('form-venda').reset();
+    document.getElementById('quantidade').value = 1; // Reseta a quantidade para 1
+    showToast(`Venda de ${produto.nome} (${formatarMoeda(total)}) registrada!`);
+});
+
+function excluirVenda(id) {
+    // REFORÇO: Garantir que o ID é um número para a comparação
+    const idNum = parseInt(id);
+    const index = estado.vendasHoje.findIndex(v => v.id === idNum);
+    
+    if (index !== -1) {
+        const nomeProduto = estado.vendasHoje[index].nomeProduto;
+        estado.vendasHoje.splice(index, 1);
+        salvarEstado();
+        atualizarInterface();
+        showToast(`Venda de ${nomeProduto} cancelada.`, "error");
+    }
 }
 
-window.mostrarDetalhesHistorico = function(dataISO) {
-    const historico = carregarHistorico();
-    const vendasDoDia = historico[dataISO];
-    const dataFormatada = new Date(dataISO + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-
-    detalhesHistoricoTitulo.textContent = `Detalhes de Vendas - ${dataFormatada}`;
-    detalhesVendasDoDiaDiv.innerHTML = '';
+// --- HISTÓRICO / NOVO DIA ---
+document.getElementById('btnNovoDia').addEventListener('click', function() {
+    if (estado.vendasHoje.length === 0) {
+        showToast("Não há vendas para fechar o dia.", "error");
+        return;
+    }
     
-    const listaDetalhes = document.createElement('ul');
-    listaDetalhes.className = 'vendas-list'; 
-    
-    vendasDoDia.sort((a, b) => new Date(a.dataHora) - new Date(b.dataHora)); 
-
-    vendasDoDia.forEach(venda => {
-        const dataVendaObj = new Date(venda.dataHora);
-        const horaFormatada = dataVendaObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if (confirm("Deseja realmente fechar o dia e arquivar as vendas atuais? Esta ação irá limpar as vendas de hoje.")) {
+        const totalArrecadado = estado.vendasHoje.reduce((acc, v) => acc + (v.total || 0), 0);
+        const totalItensVendidos = estado.vendasHoje.reduce((acc, v) => acc + (v.quantidade || 0), 0);
         
-        const item = document.createElement('li');
-        item.innerHTML = `
-            <div class="venda-info">
-                <strong>${venda.produto}</strong>
-                <div class="details">
-                    <span>${venda.quantidade}x</span> 
-                    <span>R$ ${parseFloat(venda.valorUnitario).toFixed(2)} unit.</span>
-                    <span>Cliente: ${venda.cliente || 'Anônimo'}</span>
-                </div>
-                <span>${horaFormatada}</span>
-            </div>
-            <div class="venda-valor">
-                R$ ${parseFloat(venda.valorTotal).toFixed(2)}
-            </div>
-        `;
-        listaDetalhes.appendChild(item);
-    });
+        // CORREÇÃO LÓGICA: Verifica se já existe um histórico para a data de hoje.
+        // Se sim, sobrescreve. Se não, cria um novo.
+        const dataHoje = new Date().toISOString().split('T')[0]; 
+        
+        const novoDiaHistorico = {
+            data: dataHoje,
+            totalArrecadado: totalArrecadado,
+            totalVendas: estado.vendasHoje.length,
+            totalItensVendidos: totalItensVendidos,
+            // ATENÇÃO: Faz uma cópia profunda do array de vendas para o histórico.
+            vendas: JSON.parse(JSON.stringify(estado.vendasHoje)) 
+        };
+        
+        // Encontra o índice do dia no histórico (se já existe)
+        const histIndex = estado.historico.findIndex(dia => dia.data === dataHoje);
+        
+        if (histIndex !== -1) {
+            estado.historico[histIndex] = novoDiaHistorico; // Sobrescreve
+        } else {
+            estado.historico.push(novoDiaHistorico); // Adiciona novo
+        }
 
-    detalhesVendasDoDiaDiv.appendChild(listaDetalhes);
-    detalhesHistoricoCard.classList.remove('hidden');
-    detalhesHistoricoCard.scrollIntoView({ behavior: 'smooth' });
-}
+        estado.vendasHoje = []; // Limpa as vendas de hoje
+        idVendaAtual = 1; // Reseta o ID de vendas para o novo dia
 
+        salvarEstado();
+        atualizarInterface();
+        
+        showToast(`Dia fechado com sucesso! Total: ${formatarMoeda(totalArrecadado)}`, 'success');
+        
+        // Verifica se o elemento da aba existe antes de tentar clicar
+        const tabHistorico = document.getElementById('tab-historico');
+        if (tabHistorico) {
+            tabHistorico.click(); 
+        }
+    }
+});
 
-window.exportarPdfHistorico = function(dataISO) {
-    const historico = carregarHistorico();
-    const vendas = historico[dataISO];
-    
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('p', 'mm', 'a4'); 
-    
-    const dataRelatorio = new Date(dataISO + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-    
-    doc.setFontSize(16);
-    doc.text(`Relatório de Vendas - Dia: ${dataRelatorio} (Histórico)`, 14, 15);
-
-    const vendasDoDia = vendas.sort((a, b) => new Date(a.dataHora) - new Date(b.dataHora));
-
-    let totalDia = 0;
-    vendasDoDia.forEach(venda => totalDia += venda.valorTotal);
-
-    const headers = [
-        ["Hora", "Produto", "Qtd", "Cliente", "Total (R$)"]
-    ];
-
-    const data = vendasDoDia.map(venda => {
-        const dataVendaObj = new Date(venda.dataHora);
-        const horaFormatada = dataVendaObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        return [
-            horaFormatada,
-            venda.produto,
-            venda.quantidade.toString(),
-            venda.cliente || 'Anônimo',
-            venda.valorTotal.toFixed(2)
-        ];
-    });
-
-    let startY = 30; 
-    let marginX = 14;
-
-    doc.setFontSize(12);
-    doc.text(headers[0][0], marginX, startY);
-    doc.text(headers[0][1], marginX + 20, startY);
-    doc.text(headers[0][2], marginX + 80, startY);
-    doc.text(headers[0][3], marginX + 100, startY);
-    doc.text(headers[0][4], marginX + 150, startY);
-    startY += 5;
-    doc.line(marginX, startY, 196, startY); 
-
-    doc.setFontSize(10);
-    startY += 5;
-    data.forEach(row => {
-        doc.text(row[0], marginX, startY);
-        doc.text(row[1], marginX + 20, startY);
-        doc.text(row[2], marginX + 80, startY);
-        doc.text(row[3], marginX + 100, startY);
-        doc.text(row[4], marginX + 150, startY);
-        startY += 7; 
-    });
-
-    doc.line(marginX, startY, 196, startY); 
-    startY += 5;
-    doc.setFontSize(14);
-    doc.text(`Total de Vendas no Dia: R$ ${totalDia.toFixed(2)}`, marginX, startY);
-    
-    doc.save(`historico_vendas_${dataISO}.pdf`);
-}
-
-
-// =======================================================
-// FUNÇÕES DE ATUALIZAÇÃO DO RESUMO E INTEGRAÇÃO
-// =======================================================
-
-function atualizarResumoDoDia() {
-    const vendas = carregarVendasDoDia(); 
-    
-    let totalDia = 0;
-    let numVendas = 0;
-
-    vendas.forEach(venda => {
-        totalDia += venda.valorTotal;
-        numVendas++;
-    });
-
-    totalDiaH2.textContent = `R$ ${totalDia.toFixed(2)}`;
-    totalVendasH3.textContent = numVendas.toString();
-    
-    const produtosCadastrados = carregarProdutos();
-    totalProdutosH3.textContent = produtosCadastrados.length.toString(); 
+function excluirHistorico(data) {
+     if (confirm(`Deseja realmente excluir o histórico de vendas do dia ${new Date(data).toLocaleDateString('pt-BR')}? Esta ação não pode ser desfeita.`)) {
+         estado.historico = estado.historico.filter(dia => dia.data !== data);
+         salvarEstado();
+         atualizarInterface();
+         showToast(`Histórico de ${new Date(data).toLocaleDateString('pt-BR')} excluído.`, 'error');
+     }
 }
 
 /**
- * CORRIGIDO: Garante que os produtos sejam carregados e populados no <select> de Vendas.
+ * NOVO: Exporta para PDF os detalhes de um dia específico do histórico.
+ * Usa a biblioteca jsPDF. (Mantido inalterado - Perfeito!)
  */
-function popularSelectProdutos() {
-    // Carrega produtos do LocalStorage e atualiza a variável global
-    const produtos = carregarProdutos(); 
-    produtosDisponiveis = produtos; 
+function exportarHistoricoPdf(data) {
+    const dia = estado.historico.find(d => d.data === data);
     
-    produtos.sort((a, b) => a.nome.localeCompare(b.nome));
+    if (!dia) {
+        showToast("Histórico não encontrado.", "error");
+        return;
+    }
 
-    selectProdutoVendas.innerHTML = '<option value="">Selecione um produto</option>'; 
-    
-    produtos.forEach(produto => {
-        const option = document.createElement('option');
-        option.value = produto.nome; 
-        option.textContent = `${produto.nome}`; 
-        selectProdutoVendas.appendChild(option);
-    });
-}
-
-function handleExportarPdf() {
-    // ... (Mantida a função de Exportar PDF para o dia atual)
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('p', 'mm', 'a4'); 
-    
-    const vendas = carregarVendasDoDia(); 
-
-    if (vendas.length === 0) {
-        alert("Não há vendas registradas hoje para exportar.");
+    // Checa se a biblioteca jsPDF está carregada (é uma boa prática)
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast("Erro: jsPDF não carregado. Verifique o link no HTML.", "error");
         return;
     }
     
-    const dataRelatorio = new Date(vendas[0].dataHora).toLocaleDateString('pt-BR');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const dataFormatada = new Date(dia.data).toLocaleDateString('pt-BR');
     
+    // Título
+    doc.setFontSize(22);
+    doc.text(`Relatório de Vendas - ${dataFormatada}`, 10, 20);
+    
+    doc.setFontSize(10);
+    doc.text(`Arquivo gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 10, 26);
+    doc.setLineWidth(0.5);
+    doc.line(10, 28, 200, 28); // Linha de separação
+
+    // Resumo
     doc.setFontSize(16);
-    doc.text(`Relatório de Vendas - Dia: ${dataRelatorio}`, 14, 15);
-
-    const vendasDoDia = vendas.sort((a, b) => new Date(a.dataHora) - new Date(b.dataHora));
-
-    let totalDia = 0;
-    vendasDoDia.forEach(venda => totalDia += venda.valorTotal);
-
-    const headers = [
-        ["Hora", "Produto", "Qtd", "Cliente", "Total (R$)"]
-    ];
-
-    const data = vendasDoDia.map(venda => {
-        const dataVendaObj = new Date(venda.dataHora);
-        const horaFormatada = dataVendaObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        return [
-            horaFormatada,
-            venda.produto,
-            venda.quantidade.toString(),
-            venda.cliente || 'Anônimo',
-            venda.valorTotal.toFixed(2)
-        ];
-    });
-
-    let startY = 30; 
-    let marginX = 14;
-
+    doc.text(`TOTAL ARRECADADO: ${formatarMoeda(dia.totalArrecadado)}`, 10, 40);
     doc.setFontSize(12);
-    doc.text(headers[0][0], marginX, startY);
-    doc.text(headers[0][1], marginX + 20, startY);
-    doc.text(headers[0][2], marginX + 80, startY);
-    doc.text(headers[0][3], marginX + 100, startY);
-    doc.text(headers[0][4], marginX + 150, startY);
-    startY += 5;
-    doc.line(marginX, startY, 196, startY); 
+    doc.text(`Total de Vendas Registradas: ${dia.totalVendas}`, 10, 48);
+    doc.text(`Total de Itens Vendidos: ${dia.totalItensVendidos}`, 10, 56);
+    
+    let y = 70; // Posição Y inicial para a lista
+
+    doc.setFontSize(14);
+    doc.text("Detalhes das Vendas Arquivadas:", 10, y);
+    y += 8;
 
     doc.setFontSize(10);
-    startY += 5;
-    data.forEach(row => {
-        doc.text(row[0], marginX, startY);
-        doc.text(row[1], marginX + 20, startY);
-        doc.text(row[2], marginX + 80, startY);
-        doc.text(row[3], marginX + 100, startY);
-        doc.text(row[4], marginX + 150, startY);
-        startY += 7; 
-    });
-
-    doc.line(marginX, startY, 196, startY); 
-    startY += 5;
-    doc.setFontSize(14);
-    doc.text(`Total de Vendas no Dia: R$ ${totalDia.toFixed(2)}`, marginX, startY);
     
-    doc.save(`relatorio_vendas_${new Date(vendas[0].dataHora).toISOString().slice(0, 10)}.pdf`);
+    // Ordena as vendas do histórico por hora
+    const vendasOrdenadas = [...dia.vendas].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    vendasOrdenadas.forEach((venda, index) => {
+        const dataVenda = new Date(venda.timestamp);
+        const horaFormatada = dataVenda.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const clienteTexto = venda.cliente ? ` | Cliente: ${venda.cliente}` : 'N/A';
+        
+        const linha = `${index + 1}. ${horaFormatada} | ${venda.nomeProduto} (x${venda.quantidade}) | Unidade: ${formatarMoeda(venda.precoUnitario)} | TOTAL: ${formatarMoeda(venda.total)} ${clienteTexto}`;
+        
+        doc.text(linha, 10, y);
+        y += 7;
+        
+        // Quebra de página se necessário
+        if (y > 280) { 
+            doc.addPage();
+            y = 15;
+        }
+    });
+    
+    // Salva o PDF
+    doc.save(`relatorio_vendas_${dia.data}.pdf`);
+    showToast(`Relatório PDF de ${dataFormatada} exportado!`, "success");
 }
 
 
-// =======================================================
-// FUNÇÃO DE TROCA DE ABAS (CORRIGIDA)
-// =======================================================
+// =======================================================================
+// LÓGICA DE ABAS E EVENTOS GERAIS
+// =======================================================================
 
-function trocarAba(abaAtiva) {
-    tabVendasBtn.classList.remove('active');
-    tabProdutosBtn.classList.remove('active');
-    tabHistoricoBtn.classList.remove('active'); 
+function gerenciarAbas() {
+    const tabs = document.querySelectorAll('.tabs button');
+    const contents = [
+        document.getElementById('content-vendas'),
+        document.getElementById('content-produtos'),
+        document.getElementById('content-historico')
+    ];
 
-    contentVendas.classList.add('hidden');
-    contentProdutos.classList.add('hidden');
-    contentHistorico.classList.add('hidden'); 
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            // 1. Desativa todas as abas e esconde todos os conteúdos
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.add('hidden'));
 
-    if (abaAtiva === 'vendas') {
-        tabVendasBtn.classList.add('active');
-        contentVendas.classList.remove('hidden');
-        
-        popularSelectProdutos(); // Garante que o SELECT seja populado
-        
-        renderizarVendas(); 
-        atualizarResumoDoDia(); 
-    } else if (abaAtiva === 'produtos') {
-        tabProdutosBtn.classList.add('active');
-        contentProdutos.classList.remove('hidden');
-        popularSelectProdutosExcluir();
-    } else if (abaAtiva === 'historico') { 
-        tabHistoricoBtn.classList.add('active');
-        contentHistorico.classList.remove('hidden');
-        renderizarHistorico();
+            // 2. Ativa a aba clicada e mostra o conteúdo correspondente
+            tab.classList.add('active');
+            const targetId = tab.id.replace('tab-', 'content-');
+            document.getElementById(targetId).classList.remove('hidden');
+            
+            // 3. Garante a atualização de dados ao trocar de aba
+            atualizarInterface();
+        });
+    });
+}
+
+
+// =======================================================================
+// EXPORTAÇÃO (PDF do Resumo do Dia)
+// =======================================================================
+
+document.getElementById('btnExportarPdf').addEventListener('click', function() {
+    // Checa se a biblioteca jsPDF está carregada
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast("Erro: jsPDF não carregado. Verifique o link no HTML.", "error");
+        return;
     }
-}
 
-// =======================================================
-// EVENT LISTENERS E INICIALIZAÇÃO (CORRIGIDA)
-// =======================================================
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Título
+    doc.setFontSize(22);
+    doc.text("Relatório de Vendas (Resumo do Dia)", 10, 20);
+    
+    // Data
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 10, 26);
+    doc.setLineWidth(0.5);
+    doc.line(10, 28, 200, 28); // Linha de separação
 
-tabVendasBtn.addEventListener('click', () => trocarAba('vendas'));
-tabProdutosBtn.addEventListener('click', () => trocarAba('produtos'));
-tabHistoricoBtn.addEventListener('click', () => trocarAba('historico')); 
+    // Resumo
+    const totalArrecadado = estado.vendasHoje.reduce((acc, venda) => acc + (venda.total || 0), 0);
+    const totalVendas = estado.vendasHoje.length;
 
-formProduto.addEventListener('submit', handleCadastroProduto);
-formExcluirProduto.addEventListener('submit', handleExcluirProduto);
-formVenda.addEventListener('submit', handleRegistroVenda);
-btnExportarPdf.addEventListener('click', handleExportarPdf);
-btnNovoDia.addEventListener('click', handleNovoDia);
+    doc.setFontSize(16);
+    doc.text(`TOTAL ARRECADADO: ${formatarMoeda(totalArrecadado)}`, 10, 40);
+    doc.setFontSize(12);
+    doc.text(`Total de Vendas Registradas: ${totalVendas}`, 10, 48);
 
+    let y = 60; // Posição Y inicial para a lista
 
-// Inicialização: Garante que os produtos sejam carregados no SELECT logo de início.
+    if (estado.vendasHoje.length > 0) {
+        doc.setFontSize(14);
+        doc.text("Detalhes das Vendas de Hoje:", 10, y);
+        y += 8;
+
+        doc.setFontSize(10);
+        // ORDENAÇÃO: Garante que o PDF lista as vendas na ordem em que foram registradas (ID)
+        const vendasOrdenadas = [...estado.vendasHoje].sort((a, b) => a.id - b.id); 
+        
+        vendasOrdenadas.forEach((venda, index) => {
+            const linha = `[${index + 1}] ${venda.nomeProduto} (x${venda.quantidade}) | Total: ${formatarMoeda(venda.total)} | Cliente: ${venda.cliente || 'N/A'}`;
+            doc.text(linha, 10, y);
+            y += 7;
+            
+            // Quebra de página se necessário
+            if (y > 280) { 
+                doc.addPage();
+                y = 15;
+            }
+        });
+    } else {
+        doc.text("Nenhuma venda registrada hoje.", 10, y);
+    }
+    
+    // Salva o PDF
+    doc.save("relatorio_vendas_hoje.pdf");
+    showToast("Relatório PDF exportado!", "success");
+});
+
+// =======================================================================
+// INICIALIZAÇÃO
+// =======================================================================
+
 document.addEventListener('DOMContentLoaded', () => {
-    popularSelectProdutos(); // Chamada de segurança
-    trocarAba('vendas'); 
+    carregarEstado();
+    gerenciarAbas();
+    atualizarInterface();
+    // Garante que a aba Vendas esteja ativa na inicialização
+    // REFORÇO: Adiciona a classe 'active' ao botão da aba inicial, se não estiver.
+    document.getElementById('tab-vendas').classList.add('active'); 
+    document.getElementById('content-vendas').classList.remove('hidden'); 
+    
+    // O listener para o histórico foi movido para a função 'gerenciarAbas' para ser mais limpo.
 });
