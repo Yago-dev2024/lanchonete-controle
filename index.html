@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Vendas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        /* CSS com ajustes de centralização e proporção (2:1) */
+        :root {
+            --cor-verde: #16a34a;
+            --cor-azul-botao: #2563eb;
+            --cor-fundo: #f8fafc;
+            --cor-borda: #e2e8f0;
+            --cor-texto: #334155;
+            --cor-texto-leve: #64748b;
+            --cor-vermelho-excluir: #dc2626;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            background-color: var(--cor-fundo);
+            margin: 0;
+            padding-top: 24px;
+            padding-bottom: 24px;
+            color: var(--cor-texto);
+        }
+
+        /* --- CONTAINER CENTRALIZADOR --- */
+        .container {
+            max-width: 1000px; 
+            margin: 0 auto; 
+            padding: 0 24px; 
+        }
+
+        /* --- Header (Cabeçalho) --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            margin: 0;
+        }
+        .header-title p {
+            font-size: 14px;
+            color: var(--cor-texto-leve);
+            margin: 0;
+        }
+
+        .header-actions button {
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .btn-export {
+            background-color: var(--cor-azul-botao);
+            color: white;
+        }
+
+        .btn-novo-dia {
+            background-color: #f59e0b; /* Laranja/Amarelo */
+            color: white;
+        }
+        
+        /* --- Abas de Navegação --- */
+        .tabs {
+            margin-bottom: 40px;
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+        }
+        
+        .tabs button {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            background-color: transparent;
+            border: 1px solid var(--cor-borda);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .tabs button.active {
+            background-color: white;
+            border-color: var(--cor-borda);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* --- Conteúdo Principal (Layout em Colunas Otimizado) --- */
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr; /* 2 partes para o formulário, 1 parte para o resumo */
+            gap: 24px;
+            align-items: flex-start;
+        }
+        
+        /* --- Card (Caixa Branca) --- */
+        .card {
+            background-color: white;
+            border: 1px solid var(--cor-borda);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            width: 100%;
+        }
+
+        /* Ajuste para o layout de histórico */
+        .historico-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+        
+        .card-subtitle {
+            font-size: 14px;
+            color: var(--cor-texto-leve);
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        /* --- Formulário de Registro (Mantido) --- */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid var(--cor-borda);
+            border-radius: 8px;
+            box-sizing: border-box; 
+        }
+        
+        .btn-add-produto {
+            width: 100%;
+            background-color: var(--cor-azul-botao); 
+            color: white;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .btn-submit { /* Botão Registrar Venda */
+            width: 100%;
+            background-color: var(--cor-verde);
+            color: white;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* --- Resumo do Dia (Mantido) --- */
+        .summary-total {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .summary-total p {
+            font-size: 14px;
+            color: var(--cor-texto-leve);
+            margin: 0;
+        }
+        
+        .summary-total h2 {
+            font-size: 48px;
+            color: var(--cor-verde);
+            margin: 0;
+        }
+        
+        .summary-cards {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+        
+        .summary-cards .sub-card h3 {
+            font-size: 24px;
+            margin: 0 0 4px 0;
+        }
+        
+        .summary-cards .sub-card p {
+            font-size: 14px;
+            color: var(--cor-texto-leve);
+            margin: 0;
+        }
+
+        /* --- Vendas de Hoje (Lista Vazia) --- */
+        .vendas-hoje {
+            grid-column: 1 / -1; 
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .empty-state i {
+            font-size: 40px;
+            color: #cbd5e1;
+            margin-bottom: 16px;
+        }
+        
+        .empty-state p {
+            font-size: 14px;
+            color: var(--cor-texto-leve);
+        }
+        
+        /* CSS para Esconder/Mostrar as abas */
+        .hidden {
+            display: none;
+        }
+
+        /* --- CSS para a Lista de VENDAS (Mantido) --- */
+        .vendas-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .vendas-list li {
+            background-color: #ffffff; 
+            border: 1px solid var(--cor-borda);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex; 
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .venda-info strong {
+            font-size: 16px;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .venda-info span {
+            font-size: 13px;
+            color: var(--cor-texto-leve);
+            display: block;
+            line-height: 1.5;
+        }
+
+        .venda-info .details {
+            margin: 4px 0;
+            display: flex; 
+            flex-wrap: wrap;
+            font-size: 12px;
+        }
+        
+        .venda-info .details span {
+            display: inline; 
+            color: var(--cor-texto-leve);
+            font-size: 13px;
+        }
+
+        .venda-info .details span:not(:last-child)::after {
+            content: ' • '; 
+            margin: 0 4px;
+        }
+
+        .venda-valor {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--cor-texto);
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .venda-valor button {
+            background-color: #ef4444; 
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        
+        /* --- CSS: Cartões de Histórico (Resumos Diários) --- */
+        .historico-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Layout responsivo */
+            gap: 16px;
+        }
+
+        .historico-list li {
+            background-color: white;
+            border: 1px solid var(--cor-borda);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .historico-list .data-resumo {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .historico-list .total-resumo {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--cor-verde);
+            margin-bottom: 15px;
+        }
+
+        .historico-list .botoes-resumo {
+            margin-top: auto; /* Empurra os botões para baixo */
+            display: flex;
+            gap: 10px;
+        }
+
+        .historico-list .botoes-resumo button {
+            flex-grow: 1;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .btn-export-hist {
+            background-color: var(--cor-azul-botao);
+            color: white;
+        }
+        
+        .btn-detalhes-hist {
+            background-color: #f3f4f6;
+            color: var(--cor-texto);
+        }
+
+        .btn-apagar-hist {
+            background-color: var(--cor-vermelho-excluir);
+            color: white;
+        }
+
+
+        /* Media Query para responsividade */
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            .vendas-hoje {
+                grid-column: auto;
+            }
+            .container {
+                padding: 0 15px;
+            }
+            .historico-list {
+                grid-template-columns: 1fr; /* 1 coluna em telas pequenas */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header class="header">
+            <div class="header-title">
+                <h1>Controle de Vendas</h1>
+                <p>Lanchonete do Alan</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-novo-dia" id="btnNovoDia">Novo Dia</button>
+                <button class="btn-export" id="btnExportarPdf">Exportar PDF</button>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button id="tab-vendas" class="active">Vendas</button>
+            <button id="tab-produtos">Produtos</button>
+            <button id="tab-historico">Histórico</button>
+        </nav>
+        
+        <div id="content-vendas"> 
+            <main class="main-content">
+                
+                <section class="card">
+                    <h2 class="card-title">+ Registrar Venda</h2>
+                    <p class="card-subtitle">Adicione uma nova venda do dia</p>
+
+                    <form id="form-venda">
+                        <div class="form-group">
+                            <label for="produto">Produto</label>
+                            <select id="produto" name="produto" required>
+                                <option value="">Selecione um produto</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="quantidade">Quantidade</label>
+                            <input type="number" id="quantidade" name="quantidade" value="1" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="cliente">Cliente (Opcional)</label>
+                            <input type="text" id="cliente" name="cliente" placeholder="Nome do cliente">
+                        </div>
+                        <button type="submit" class="btn-submit">+ Registrar Venda</button>
+                    </form>
+                </section>
+
+                <section class="card">
+                    <h2 class="card-title">Resumo de Hoje</h2>
+                    <p class="card-subtitle">Total de vendas do dia atual</p>
+
+                    <div class="summary-total">
+                        <p>Total do Dia</p>
+                        <h2 id="total-dia">R$ 0.00</h2>
+                    </div>
+
+                    <div class="summary-cards">
+                        <div class="sub-card">
+                            <h3 id="total-vendas">0</h3>
+                            <p>Vendas</p>
+                        </div>
+                        <div class="sub-card">
+                            <h3 id="total-produtos">0</h3>
+                            <p>Produtos</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card vendas-hoje">
+                    <h2 class="card-title">Vendas de Hoje</h2>
+                    <p class="card-subtitle">Lista de todas as vendas registradas hoje</p>
+                    <div id="lista-vendas">
+                        <div class="empty-state">
+                            <i class="fas fa-shopping-cart"></i>
+                            <p>Nenhuma venda registrada hoje</p>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <div id="content-produtos" class="hidden"> 
+            <main class="main-content">
+                
+                <section class="card">
+                    <h2 class="card-title">+ Novo Produto</h2>
+                    <p class="card-subtitle">Cadastre produtos com preços</p>
+
+                    <form id="form-produto">
+                        <div class="form-group">
+                            <label for="nome-produto">Nome do Produto</label>
+                            <input type="text" id="nome-produto" name="nome-produto" placeholder="Ex: Coxinha" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="preco-produto">Preço (R$)</label>
+                            <input type="number" id="preco-produto" name="preco-produto" step="0.01" value="0.00" min="0.01" required>
+                        </div>
+                        <button type="submit" class="btn-add-produto">+ Adicionar Produto</button>
+                    </form>
+                </section>
+
+                <section class="card">
+                    <h2 class="card-title">Excluir Produto</h2>
+                    <p class="card-subtitle">Selecione o produto que deseja remover.</p>
+
+                    <form id="form-excluir-produto">
+                        <div class="form-group">
+                            <label for="select-produto-excluir">Produto</label>
+                            <select id="select-produto-excluir" name="select-produto-excluir" required>
+                                <option value="">Selecione um produto para excluir</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-submit" style="background-color: #dc2626;">
+                            <i class="fas fa-trash"></i> Excluir Produto Selecionado
+                        </button>
+                    </form>
+                </section>
+
+                <section class="card">
+                    <h2 class="card-title">Produtos Cadastrados</h2>
+                    <p class="card-subtitle">A contagem total de produtos está no resumo da aba Vendas.</p>
+                    <div id="lista-produtos-cadastrados">
+                        <div class="empty-state">
+                            <i class="fas fa-box-open"></i>
+                            <p>Use o seletor acima para excluir produtos.</p>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <div id="content-historico" class="hidden">
+            <main class="historico-layout">
+                <section class="card">
+                    <h2 class="card-title">Histórico de Vendas</h2>
+                    <p class="card-subtitle">Resumo das vendas de dias anteriores.</p>
+                    <div id="lista-historico">
+                        <div class="empty-state">
+                            <i class="fas fa-history"></i>
+                            <p>O histórico será exibido aqui após fechar o dia.</p>
+                        </div>
+                    </div>
+                </section>
+                
+                <section class="card hidden" id="detalhes-historico-card">
+                    <h2 class="card-title" id="detalhes-historico-titulo">Detalhes da Venda</h2>
+                    <p class="card-subtitle">Vendas registradas para o dia selecionado.</p>
+                    <div id="detalhes-vendas-do-dia">
+                        </div>
+                </section>
+
+            </main>
+        </div>
+
+    </div> 
+    <script src="script.js"></script> 
+</body>
+</html>
