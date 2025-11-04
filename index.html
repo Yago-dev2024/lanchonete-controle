@@ -6,10 +6,12 @@
     <title>Controle de Vendas</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
-        /* CSS com ajustes de centralização e proporção (2:1) */
+        /* --- VARIÁVEIS DE COR --- */
         :root {
             --cor-verde: #16a34a;
             --cor-azul-botao: #2563eb;
@@ -18,6 +20,8 @@
             --cor-texto: #334155;
             --cor-texto-leve: #64748b;
             --cor-vermelho-excluir: #dc2626;
+            --cor-sucesso: #10b981; /* Verde do Toast */
+            --cor-erro: #ef4444; /* Vermelho do Toast */
         }
 
         body {
@@ -36,14 +40,62 @@
             padding: 0 24px; 
         }
 
+        /* ------------------------------------------- */
+        /* --- ESTILOS DO TOAST NOTIFICATION --- */
+        /* ------------------------------------------- */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background-color: var(--cor-sucesso);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            transform: translateX(100%);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast i {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+        
+        .toast.error {
+            background-color: var(--cor-erro);
+        }
+        
         /* --- Header (Cabeçalho) --- */
         .header {
-            display: flex;
-            justify-content: space-between;
+            display: grid; 
+            grid-template-columns: 1fr 300px; 
+            gap: 40px; 
             align-items: center;
             margin-bottom: 40px;
         }
 
+        .header-title {
+            grid-column: 1; 
+            padding-left: 24px; 
+        }
+        
         .header-title h1 {
             font-size: 24px;
             margin: 0;
@@ -54,6 +106,13 @@
             margin: 0;
         }
 
+        .header-actions {
+            grid-column: 2; 
+            display: flex;
+            justify-content: flex-end; 
+            gap: 10px; 
+        }
+
         .header-actions button {
             padding: 10px 16px;
             font-size: 14px;
@@ -61,7 +120,6 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            margin-left: 10px;
         }
 
         .btn-export {
@@ -90,8 +148,13 @@
             border: 1px solid var(--cor-borda);
             border-radius: 8px;
             cursor: pointer;
+            transition: background-color 0.2s;
         }
         
+        .tabs button:hover:not(.active) {
+             background-color: #f1f5f9;
+        }
+
         .tabs button.active {
             background-color: white;
             border-color: var(--cor-borda);
@@ -101,9 +164,17 @@
         /* --- Conteúdo Principal (Layout em Colunas Otimizado) --- */
         .main-content {
             display: grid;
-            grid-template-columns: 2fr 1fr; /* 2 partes para o formulário, 1 parte para o resumo */
+            grid-template-columns: 1fr 300px; 
+            column-gap: 40px; 
+            row-gap: 24px; /* Aumentei o espaçamento vertical entre os cards */
+            align-items: stretch; 
+        }
+        
+        /* Ajuste para o layout de histórico */
+        .historico-layout {
+            display: grid;
+            grid-template-columns: 1fr;
             gap: 24px;
-            align-items: flex-start;
         }
         
         /* --- Card (Caixa Branca) --- */
@@ -116,13 +187,6 @@
             width: 100%;
         }
 
-        /* Ajuste para o layout de histórico */
-        .historico-layout {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 24px;
-        }
-        
         .card-title {
             font-size: 18px;
             font-weight: 600;
@@ -137,7 +201,7 @@
             margin-bottom: 20px;
         }
 
-        /* --- Formulário de Registro (Mantido) --- */
+        /* --- Formulário de Registro --- */
         .form-group {
             margin-bottom: 16px;
         }
@@ -159,31 +223,32 @@
             box-sizing: border-box; 
         }
         
-        .btn-add-produto {
+        .btn-add-produto, .btn-submit {
             width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-add-produto {
             background-color: var(--cor-azul-botao); 
             color: white;
-            padding: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
         }
 
-        .btn-submit { /* Botão Registrar Venda */
-            width: 100%;
+        .btn-submit { 
             background-color: var(--cor-verde);
             color: white;
-            padding: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
         }
+        
+        .btn-add-produto:hover { background-color: #1d4ed8; }
+        .btn-submit:hover { background-color: #059669; }
 
-        /* --- Resumo do Dia (Mantido) --- */
+
+        /* --- Resumo do Dia --- */
         .summary-total {
             text-align: center;
             margin: 30px 0;
@@ -218,9 +283,13 @@
             margin: 0;
         }
 
-        /* --- Vendas de Hoje (Lista Vazia) --- */
+        /* --- Vendas de Hoje / Produtos Cadastrados (largura total) --- */
         .vendas-hoje {
             grid-column: 1 / -1; 
+        }
+
+        .produtos-largura-total {
+            grid-column: 1 / -1;
         }
         
         .empty-state {
@@ -241,10 +310,10 @@
         
         /* CSS para Esconder/Mostrar as abas */
         .hidden {
-            display: none;
+            display: none !important;
         }
 
-        /* --- CSS para a Lista de VENDAS (Mantido) --- */
+        /* --- CSS para a Lista de VENDAS/PRODUTOS --- */
         .vendas-list {
             list-style: none;
             padding: 0;
@@ -313,6 +382,10 @@
             font-size: 12px;
             cursor: pointer;
             margin-top: 8px;
+            transition: background-color 0.2s;
+        }
+        .venda-valor button:hover {
+            background-color: var(--cor-vermelho-excluir);
         }
         
         /* --- CSS: Cartões de Histórico (Resumos Diários) --- */
@@ -361,31 +434,72 @@
             border: none;
             border-radius: 6px;
             cursor: pointer;
+            transition: background-color 0.2s;
         }
 
         .btn-export-hist {
             background-color: var(--cor-azul-botao);
             color: white;
         }
+        .btn-export-hist:hover { background-color: #1d4ed8; }
         
         .btn-detalhes-hist {
             background-color: #f3f4f6;
             color: var(--cor-texto);
         }
+        .btn-detalhes-hist:hover { background-color: #e2e8f0; }
+
 
         .btn-apagar-hist {
             background-color: var(--cor-vermelho-excluir);
             color: white;
         }
+        .btn-apagar-hist:hover { background-color: #b91c1c; }
+
+        /* ======================================================= */
+        /* --- NOVO CSS PARA FORÇAR LEGENDA DO CHART.JS EM LINHA --- */
+        /* ======================================================= */
+        /* Seleciona o elemento UL que é gerado logo após o canvas do Chart.js */
+        #resumo-grafico-container + ul {
+            display: flex;
+            flex-wrap: wrap; /* Permite quebrar linha em telas pequenas */
+            justify-content: center; /* Centraliza a legenda na horizontal */
+            list-style: none;
+            padding: 0 !important;
+            margin: 15px 0 0 0 !important;
+        }
+        
+        #resumo-grafico-container + ul li {
+            margin: 0 10px 10px 10px !important; /* Espaço entre os itens */
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+        
+        /* Ajusta o quadrado de cor que o Chart.js insere */
+        #resumo-grafico-container + ul li > span {
+            margin-right: 5px;
+        }
 
 
-        /* Media Query para responsividade */
+        /* Media Query para responsividade (Telas Pequenas) */
         @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
+            .header {
+                grid-template-columns: 1fr; /* Coloca o cabeçalho em uma única coluna */
+                gap: 15px;
             }
-            .vendas-hoje {
-                grid-column: auto;
+            .header-title {
+                padding-left: 0;
+            }
+            .header-actions {
+                grid-column: 1; 
+                justify-content: center; 
+            }
+            .main-content {
+                grid-template-columns: 1fr; /* Todos os cards ficam em uma coluna */
+            }
+            .vendas-hoje, .produtos-largura-total {
+                grid-column: auto; /* Remove a largura total em telas pequenas */
             }
             .container {
                 padding: 0 15px;
@@ -393,10 +507,22 @@
             .historico-list {
                 grid-template-columns: 1fr; /* 1 coluna em telas pequenas */
             }
+            .tabs {
+                gap: 8px;
+            }
+            /* Garante que o resumo em cartões não quebre estranho */
+            .summary-cards {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .summary-total h2 {
+                font-size: 40px;
+            }
         }
     </style>
 </head>
 <body>
+    <div id="toast-container"></div> 
 
     <div class="container">
         <header class="header">
@@ -441,7 +567,7 @@
                         <button type="submit" class="btn-submit">+ Registrar Venda</button>
                     </form>
                 </section>
-
+                
                 <section class="card">
                     <h2 class="card-title">Resumo de Hoje</h2>
                     <p class="card-subtitle">Total de vendas do dia atual</p>
@@ -461,7 +587,14 @@
                             <p>Produtos</p>
                         </div>
                     </div>
-                </section>
+                    
+                    <div id="resumo-grafico-container" style="margin-top: 20px; height: 250px;">
+                        <div class="empty-state">
+                            <i class="fas fa-chart-pie"></i>
+                            <p>Nenhuma venda registrada para o gráfico.</p>
+                        </div>
+                    </div>
+                    </section>
 
                 <section class="card vendas-hoje">
                     <h2 class="card-title">Vendas de Hoje</h2>
@@ -473,6 +606,7 @@
                         </div>
                     </div>
                 </section>
+
             </main>
         </div>
 
@@ -513,13 +647,13 @@
                     </form>
                 </section>
 
-                <section class="card">
+                <section class="card produtos-largura-total"> 
                     <h2 class="card-title">Produtos Cadastrados</h2>
                     <p class="card-subtitle">A contagem total de produtos está no resumo da aba Vendas.</p>
                     <div id="lista-produtos-cadastrados">
                         <div class="empty-state">
                             <i class="fas fa-box-open"></i>
-                            <p>Use o seletor acima para excluir produtos.</p>
+                            <p>Nenhum produto cadastrado.</p>
                         </div>
                     </div>
                 </section>
@@ -543,7 +677,7 @@
                     <h2 class="card-title" id="detalhes-historico-titulo">Detalhes da Venda</h2>
                     <p class="card-subtitle">Vendas registradas para o dia selecionado.</p>
                     <div id="detalhes-vendas-do-dia">
-                        </div>
+                    </div>
                 </section>
 
             </main>
