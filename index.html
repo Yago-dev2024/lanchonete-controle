@@ -4,29 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle de Vendas</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
     <style>
         /* --- VARIÁVEIS DE COR --- */
         :root {
             --cor-verde: #16a34a;
             --cor-azul-botao: #2563eb;
-            --cor-fundo: #f8fafc;
+            --cor-fundo: transparent; 
             --cor-borda: #e2e8f0;
             --cor-texto: #334155;
             --cor-texto-leve: #64748b;
             --cor-vermelho-excluir: #dc2626;
-            --cor-sucesso: #10b981; /* Verde do Toast */
-            --cor-erro: #ef4444; /* Vermelho do Toast */
+            --cor-sucesso: #10b981; 
+            --cor-erro: #ef4444;
+        }
+
+        /* ------------------------------------------- */
+        /* 🌟 FUNDO BORRADO (GLASSMORPHISM BASE) 🌟 */
+        /* ------------------------------------------- */
+        .fundo-borrado {
+            position: fixed; 
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; 
+            
+            /* Caminho do background e ajustes de opacidade */
+            background-image: url('imagem-fundo/background.jpg'); 
+            background-size: cover; 
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-position: center center;
+            
+            filter: blur(5px); 
+            -webkit-filter: blur(5px); 
+            
+            background-color: rgba(0, 0, 0, 0.4); 
+            background-blend-mode: overlay;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-            background-color: var(--cor-fundo);
+            background-color: var(--cor-fundo); 
             margin: 0;
             padding-top: 24px;
             padding-bottom: 24px;
@@ -38,6 +60,8 @@
             max-width: 1000px; 
             margin: 0 auto; 
             padding: 0 24px; 
+            position: relative;
+            z-index: 1;
         }
 
         /* ------------------------------------------- */
@@ -99,11 +123,14 @@
         .header-title h1 {
             font-size: 24px;
             margin: 0;
+            color: #ffffff; 
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
         }
         .header-title p {
             font-size: 14px;
-            color: var(--cor-texto-leve);
+            color: #f1f5f9; 
             margin: 0;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
         }
 
         .header-actions {
@@ -120,6 +147,10 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .header-actions button:hover {
+            opacity: 0.85;
         }
 
         .btn-export {
@@ -128,7 +159,7 @@
         }
 
         .btn-novo-dia {
-            background-color: #f59e0b; /* Laranja/Amarelo */
+            background-color: #f59e0b; 
             color: white;
         }
         
@@ -144,21 +175,23 @@
             padding: 10px 20px;
             font-size: 14px;
             font-weight: 600;
-            background-color: transparent;
-            border: 1px solid var(--cor-borda);
+            background-color: rgba(255, 255, 255, 0.1); 
+            border: 1px solid rgba(255, 255, 255, 0.2); 
+            color: #f1f5f9;
             border-radius: 8px;
             cursor: pointer;
             transition: background-color 0.2s;
         }
         
         .tabs button:hover:not(.active) {
-             background-color: #f1f5f9;
+            background-color: rgba(255, 255, 255, 0.2);
         }
 
         .tabs button.active {
-            background-color: white;
-            border-color: var(--cor-borda);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            background-color: rgba(255, 255, 255, 0.7);
+            border-color: rgba(255, 255, 255, 0.5);
+            color: var(--cor-texto); 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         /* --- Conteúdo Principal (Layout em Colunas Otimizado) --- */
@@ -166,7 +199,7 @@
             display: grid;
             grid-template-columns: 1fr 300px; 
             column-gap: 40px; 
-            row-gap: 24px; /* Aumentei o espaçamento vertical entre os cards */
+            row-gap: 24px; 
             align-items: stretch; 
         }
         
@@ -177,13 +210,19 @@
             gap: 24px;
         }
         
-        /* --- Card (Caixa Branca) --- */
+        /* ------------------------------------------- */
+        /* 🌟 EFEITO GLASSMORPHISM NAS CAIXAS (CARD) 🌟 */
+        /* ------------------------------------------- */
         .card {
-            background-color: white;
-            border: 1px solid var(--cor-borda);
+            /* 💡 AUMENTADO DE 0.5 PARA 0.85 - MAIS SÓLIDO */
+            background-color: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(10px); 
+            -webkit-backdrop-filter: blur(10px); 
+            /* 💡 BORDA UM POUCO MAIS VISÍVEL */
+            border: 1px solid rgba(255, 255, 255, 0.9); 
             border-radius: 12px;
             padding: 24px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
             width: 100%;
         }
 
@@ -211,6 +250,9 @@
             font-size: 14px;
             font-weight: 600;
             margin-bottom: 6px;
+            /* Cor do texto do label ajustada para ser mais visível no fundo */
+            color: var(--cor-texto); 
+            text-shadow: none; /* Removido o text-shadow para clarear */
         }
         
         .form-group input,
@@ -218,9 +260,16 @@
             width: 100%;
             padding: 10px;
             font-size: 14px;
+            /* 💡 AUMENTADO DE 0.85 PARA 1.0 - SÓLIDO/BRANCO TOTALMENTE VISÍVEL */
+            background-color: rgba(255, 255, 255, 1.0); 
+            /* 💡 BORDA MAIS DEFINIDA */
             border: 1px solid var(--cor-borda);
             border-radius: 8px;
             box-sizing: border-box; 
+            color: var(--cor-texto);
+        }
+        .form-group input::placeholder {
+            color: var(--cor-texto-leve);
         }
         
         .btn-add-produto, .btn-submit {
@@ -231,7 +280,10 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: opacity 0.2s;
+        }
+        .btn-add-produto:hover, .btn-submit:hover {
+            opacity: 0.85;
         }
 
         .btn-add-produto {
@@ -244,10 +296,6 @@
             color: white;
         }
         
-        .btn-add-produto:hover { background-color: #1d4ed8; }
-        .btn-submit:hover { background-color: #059669; }
-
-
         /* --- Resumo do Dia --- */
         .summary-total {
             text-align: center;
@@ -264,6 +312,7 @@
             font-size: 48px;
             color: var(--cor-verde);
             margin: 0;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
         .summary-cards {
@@ -299,12 +348,14 @@
         
         .empty-state i {
             font-size: 40px;
-            color: #cbd5e1;
+            /* Cor do ícone ajustada para ficar mais visível no fundo */
+            color: var(--cor-texto-leve); 
             margin-bottom: 16px;
         }
         
         .empty-state p {
             font-size: 14px;
+            /* Cor do texto ajustada para ficar mais visível no fundo */
             color: var(--cor-texto-leve);
         }
         
@@ -321,7 +372,9 @@
         }
 
         .vendas-list li {
-            background-color: #ffffff; 
+            /* 💡 AUMENTADO DE 0.85 PARA 1.0 - SÓLIDO/BRANCO TOTALMENTE VISÍVEL */
+            background-color: rgba(255, 255, 255, 1.0); 
+            /* 💡 BORDA MAIS DEFINIDA */
             border: 1px solid var(--cor-borda);
             border-radius: 8px;
             padding: 16px;
@@ -331,6 +384,39 @@
             align-items: flex-start;
         }
 
+        /* ------------------------------------------------------------- */
+        /* 🚀 NOVO: Estilo para os Itens de Produto dentro do Scroll */
+        /* ------------------------------------------------------------- */
+        .produto-item { /* Esta classe deve ser usada nos itens de produto injetados via JS */
+            /* 💡 AUMENTADO DE 0.85 PARA 1.0 - SÓLIDO/BRANCO TOTALMENTE VISÍVEL */
+            background-color: rgba(255, 255, 255, 1.0); 
+            /* 💡 BORDA MAIS DEFINIDA */
+            border: 1px solid var(--cor-borda);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex; 
+            justify-content: space-between;
+            align-items: center;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .produto-item button {
+            background-color: #ef4444; 
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .produto-item button:hover {
+            background-color: var(--cor-vermelho-excluir);
+        }
+        
+        /* --- Info de Venda (detalhes) --- */
         .venda-info strong {
             font-size: 16px;
             font-weight: 700;
@@ -388,19 +474,56 @@
             background-color: var(--cor-vermelho-excluir);
         }
         
+        /* ------------------------------------------------------------- */
+        /* --- CSS: Barras de Rolagem (Vendas, Histórico E Produtos) --- */
+        /* ------------------------------------------------------------- */
+        
+        /* O contêiner de rolagem em si: Vendas Hoje, Histórico E Produtos Cadastrados */
+        #lista-vendas,
+        #lista-historico,
+        #lista-produtos-cadastrados { 
+            /* Fixamos uma altura que deve ser menor que a tela (ajuste se 60vh for muito alto/baixo) */
+            max-height: 60vh; 
+            overflow-y: auto; 
+            padding-right: 15px; /* Espaçamento para não encostar nos cards */
+            margin-bottom: 10px; /* Adiciona um pequeno espaço no final */
+        }
+        
+        /* Estilização básica da barra de rolagem (opcional) */
+        #lista-vendas::-webkit-scrollbar,
+        #lista-historico::-webkit-scrollbar,
+        #lista-produtos-cadastrados::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #lista-vendas::-webkit-scrollbar-thumb,
+        #lista-historico::-webkit-scrollbar-thumb,
+        #lista-produtos-cadastrados::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.2); 
+            border-radius: 4px;
+        }
+        
+        /* ------------------------------------------------------------- */
+
         /* --- CSS: Cartões de Histórico (Resumos Diários) --- */
         .historico-list {
             list-style: none;
             padding: 0;
             margin: 0;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Layout responsivo */
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
             gap: 16px;
         }
 
         .historico-list li {
-            background-color: white;
-            border: 1px solid var(--cor-borda);
+            /* 💡 AUMENTADO DE 0.5 PARA 0.85 - MAIS SÓLIDO */
+            background-color: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(10px); 
+            -webkit-backdrop-filter: blur(10px); 
+            /* 💡 BORDA UM POUCO MAIS VISÍVEL */
+            border: 1px solid rgba(255, 255, 255, 0.9); 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+            
             border-radius: 12px;
             padding: 20px;
             display: flex;
@@ -421,7 +544,7 @@
         }
 
         .historico-list .botoes-resumo {
-            margin-top: auto; /* Empurra os botões para baixo */
+            margin-top: auto; 
             display: flex;
             gap: 10px;
         }
@@ -434,14 +557,16 @@
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: opacity 0.2s;
+        }
+        .historico-list .botoes-resumo button:hover {
+            opacity: 0.85;
         }
 
         .btn-export-hist {
             background-color: var(--cor-azul-botao);
             color: white;
         }
-        .btn-export-hist:hover { background-color: #1d4ed8; }
         
         .btn-detalhes-hist {
             background-color: #f3f4f6;
@@ -457,60 +582,60 @@
         .btn-apagar-hist:hover { background-color: #b91c1c; }
 
         /* ======================================================= */
-        /* --- NOVO CSS PARA FORÇAR LEGENDA DO CHART.JS EM LINHA --- */
+        /* --- CSS PARA LEGENDA DO CHART.JS  --- */
         /* ======================================================= */
-        /* Seleciona o elemento UL que é gerado logo após o canvas do Chart.js */
         #resumo-grafico-container + ul {
             display: flex;
-            flex-wrap: wrap; /* Permite quebrar linha em telas pequenas */
-            justify-content: center; /* Centraliza a legenda na horizontal */
+            flex-wrap: wrap; 
+            justify-content: center; 
             list-style: none;
             padding: 0 !important;
             margin: 15px 0 0 0 !important;
         }
         
         #resumo-grafico-container + ul li {
-            margin: 0 10px 10px 10px !important; /* Espaço entre os itens */
+            margin: 0 10px 10px 10px !important; 
             display: flex;
             align-items: center;
             font-size: 14px;
+            color: #f1f5f9; 
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
         
-        /* Ajusta o quadrado de cor que o Chart.js insere */
         #resumo-grafico-container + ul li > span {
             margin-right: 5px;
+            border: 1px solid rgba(0,0,0,0.2);
         }
 
-
-        /* Media Query para responsividade (Telas Pequenas) */
+        /* --- Media Query --- */
         @media (max-width: 768px) {
             .header {
-                grid-template-columns: 1fr; /* Coloca o cabeçalho em uma única coluna */
+                grid-template-columns: 1fr; 
                 gap: 15px;
             }
             .header-title {
                 padding-left: 0;
+                text-align: center; 
             }
             .header-actions {
                 grid-column: 1; 
                 justify-content: center; 
             }
             .main-content {
-                grid-template-columns: 1fr; /* Todos os cards ficam em uma coluna */
+                grid-template-columns: 1fr; 
             }
             .vendas-hoje, .produtos-largura-total {
-                grid-column: auto; /* Remove a largura total em telas pequenas */
+                grid-column: auto; 
             }
             .container {
                 padding: 0 15px;
             }
             .historico-list {
-                grid-template-columns: 1fr; /* 1 coluna em telas pequenas */
+                grid-template-columns: 1fr; 
             }
             .tabs {
                 gap: 8px;
             }
-            /* Garante que o resumo em cartões não quebre estranho */
             .summary-cards {
                 flex-direction: column;
                 gap: 15px;
@@ -518,10 +643,18 @@
             .summary-total h2 {
                 font-size: 40px;
             }
+            
+            /* Ajuste da altura máxima para telas menores, se necessário */
+            #lista-vendas, /* <<< NOVO: GARANTINDO EM TELA MENOR */
+            #lista-historico, #lista-produtos-cadastrados {
+                max-height: 70vh; /* Um pouco mais alto para telas menores */
+            }
         }
     </style>
 </head>
 <body>
+    <div class="fundo-borrado"></div>
+
     <div id="toast-container"></div> 
 
     <div class="container">
@@ -574,7 +707,7 @@
 
                     <div class="summary-total">
                         <p>Total do Dia</p>
-                        <h2 id="total-dia">R$ 0.00</h2>
+                        <h2 id="total-dia">R$ 0,00</h2>
                     </div>
 
                     <div class="summary-cards">
@@ -594,7 +727,7 @@
                             <p>Nenhuma venda registrada para o gráfico.</p>
                         </div>
                     </div>
-                    </section>
+                </section>
 
                 <section class="card vendas-hoje">
                     <h2 class="card-title">Vendas de Hoje</h2>
@@ -655,7 +788,7 @@
                             <i class="fas fa-box-open"></i>
                             <p>Nenhum produto cadastrado.</p>
                         </div>
-                    </div>
+                        </div>
                 </section>
             </main>
         </div>
@@ -665,7 +798,7 @@
                 <section class="card">
                     <h2 class="card-title">Histórico de Vendas</h2>
                     <p class="card-subtitle">Resumo das vendas de dias anteriores.</p>
-                    <div id="lista-historico">
+                    <div id="lista-historico"> 
                         <div class="empty-state">
                             <i class="fas fa-history"></i>
                             <p>O histórico será exibido aqui após fechar o dia.</p>
@@ -684,6 +817,9 @@
         </div>
 
     </div> 
-    <script src="script.js"></script> 
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
